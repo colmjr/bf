@@ -1,0 +1,1 @@
+This is a simple [[https://en.wikipedia.org/wiki/Brainfuck][Brainfuck]] interpreter in Rust. I plan to build a simple little language on top of bf that transpiles into bf in the future.
