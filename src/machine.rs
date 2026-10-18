@@ -10,10 +10,10 @@ pub struct Machine {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum Instruction {
-    Inc,
-    Dec,
-    PtrInc,
-    PtrDec,
+    Inc(usize),
+    Dec(usize),
+    PtrInc(usize),
+    PtrDec(usize),
     LoopBeg,
     LoopEnd,
     Output,
@@ -36,17 +36,17 @@ impl Machine {
     pub fn run(&mut self) -> io::Result<()> {
         while self.pc < self.source.len() {
             match self.source[self.pc] {
-                Instruction::Inc => {
-                    self.tape[self.ptr] = self.tape[self.ptr].wrapping_add(1);
+                Instruction::Inc(n) => {
+                    self.tape[self.ptr] = self.tape[self.ptr].wrapping_add(n as u8);
                 }
-                Instruction::Dec => {
-                    self.tape[self.ptr] = self.tape[self.ptr].wrapping_sub(1);
+                Instruction::Dec(n) => {
+                    self.tape[self.ptr] = self.tape[self.ptr].wrapping_sub(n as u8);
                 }
-                Instruction::PtrInc => {
-                    self.ptr += 1;
+                Instruction::PtrInc(n) => {
+                    self.ptr += n;
                 }
-                Instruction::PtrDec => {
-                    self.ptr -= 1;
+                Instruction::PtrDec(n) => {
+                    self.ptr -= n;
                 }
                 Instruction::LoopBeg => {
                     if self.tape[self.ptr] == 0 {
@@ -105,19 +105,36 @@ fn build_jump(source: &[Instruction]) -> Vec<Option<usize>> {
 fn parse(source: Vec<char>) -> Vec<Instruction> {
     let mut src: Vec<Instruction> = Vec::new();
     for c in source {
-        let instr = match c {
-            '>' => Some(Instruction::PtrInc),
-            '<' => Some(Instruction::PtrDec),
-            '+' => Some(Instruction::Inc),
-            '-' => Some(Instruction::Dec),
+        let instruction = match c {
+            '>' => Some(Instruction::PtrInc(1)),
+            '<' => Some(Instruction::PtrDec(1)),
+            '+' => Some(Instruction::Inc(1)),
+            '-' => Some(Instruction::Dec(1)),
             '[' => Some(Instruction::LoopBeg),
             ']' => Some(Instruction::LoopEnd),
             '.' => Some(Instruction::Output),
             ',' => Some(Instruction::Input),
             _ => None,
         };
-        if let Some(ins) = instr {
-            src.push(ins);
+
+        if let Some(ins) = instruction {
+            match (src.last_mut(), ins) {
+                (Some(Instruction::Inc(count)), Instruction::Inc(1)) => {
+                    *count += 1;
+                }
+                (Some(Instruction::Dec(count)), Instruction::Dec(1)) => {
+                    *count += 1;
+                }
+                (Some(Instruction::PtrInc(count)), Instruction::PtrInc(1)) => {
+                    *count += 1;
+                }
+                (Some(Instruction::PtrDec(count)), Instruction::PtrDec(1)) => {
+                    *count += 1;
+                }
+                (_, ins) => {
+                    src.push(ins);
+                }
+            }
         }
     }
     src
