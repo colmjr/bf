@@ -1,8 +1,9 @@
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 
 pub struct Machine {
     tape: Vec<u8>,
     source: Vec<Instruction>,
+    jump: Vec<Option<usize>>,
     ptr: usize,
     pc: usize,
 }
@@ -21,15 +22,18 @@ enum Instruction {
 
 impl Machine {
     pub fn new(source: Vec<char>) -> Self {
+        let source = parse(source);
+        let jump: Vec<Option<usize>> = build_jump(&source);
         Machine {
             tape: vec![0u8; 30000],
-            source: parse(source),
+            source,
+            jump,
             ptr: 0,
             pc: 0,
         }
     }
 
-    pub fn run(&mut self) -> std::io::Result<()> {
+    pub fn run(&mut self) -> io::Result<()> {
         while self.pc < self.source.len() {
             match self.source[self.pc] {
                 Instruction::Inc => {
@@ -46,22 +50,20 @@ impl Machine {
                 }
                 Instruction::LoopBeg => {
                     if self.tape[self.ptr] == 0 {
-                        self.pc =
-                            find_closing(self.pc, &self.source).expect("Expected ']' after '['");
+                        self.pc = self.jump[self.pc].unwrap();
                     }
                 }
                 Instruction::LoopEnd => {
                     if self.tape[self.ptr] != 0 {
-                        self.pc = find_opening(self.pc, &self.source)
-                            .expect("Expected '[' corresponding to ']'");
+                        self.pc = self.jump[self.pc].unwrap();
                     }
                 }
-                Instruction::Output => std::io::stdout().write_all(&[self.tape[self.ptr]])?,
+                Instruction::Output => io::stdout().write_all(&[self.tape[self.ptr]])?,
                 Instruction::Input => {
-                    std::io::stdout().flush().unwrap();
+                    io::stdout().flush().unwrap();
                     let mut buf = [0u8; 1];
 
-                    match std::io::stdin().read_exact(&mut buf) {
+                    match io::stdin().read_exact(&mut buf) {
                         Ok(()) => {
                             self.tape[self.ptr] = buf[0];
                         }
@@ -77,6 +79,27 @@ impl Machine {
         }
         Ok(())
     }
+}
+
+fn build_jump(source: &[Instruction]) -> Vec<Option<usize>> {
+    let mut jumps = vec![None; source.len()];
+    let mut stack: Vec<usize> = Vec::new();
+
+    for (idx, instruction) in source.iter().enumerate() {
+        if instruction == &Instruction::LoopBeg {
+            stack.push(idx);
+        } else if instruction == &Instruction::LoopEnd {
+            let beg = stack.pop().expect("Unmatched ']'");
+            jumps[beg] = Some(idx);
+            jumps[idx] = Some(beg);
+        }
+    }
+
+    if !stack.is_empty() {
+        panic!("Unmatched '['")
+    }
+
+    jumps
 }
 
 fn parse(source: Vec<char>) -> Vec<Instruction> {
@@ -98,39 +121,4 @@ fn parse(source: Vec<char>) -> Vec<Instruction> {
         }
     }
     src
-}
-
-fn find_opening(start: usize, source: &[Instruction]) -> Option<usize> {
-    let mut depth = 1;
-    for (index, instruction) in source[0..start].iter().enumerate().rev() {
-        match instruction {
-            Instruction::LoopEnd => depth += 1,
-            Instruction::LoopBeg => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(index);
-                }
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
-fn find_closing(start: usize, source: &[Instruction]) -> Option<usize> {
-    let mut depth = 1;
-
-    for (index, instruction) in source.iter().enumerate().skip(start + 1) {
-        match instruction {
-            Instruction::LoopBeg => depth += 1,
-            Instruction::LoopEnd => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(index);
-                }
-            }
-            _ => {}
-        }
-    }
-    None
 }
