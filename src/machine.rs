@@ -59,8 +59,11 @@ impl Machine {
                         Ok(()) => {
                             self.tape[self.ptr] = buf[0];
                         }
-                        Err(_) => {
-                            eprintln!("Stdin did not receive one char");
+                        Err(e) => {
+                            // If the buffer is full
+                            // it just queues up inputs for future requests
+                            // as expected
+                            eprintln!("{}", e);
                         }
                     }
                 }

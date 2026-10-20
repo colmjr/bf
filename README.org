@@ -1,1 +1,5 @@
-This is a simple [[https://en.wikipedia.org/wiki/Brainfuck][Brainfuck]] interpreter in Rust. I plan to build a simple little language on top of bf that transpiles into bf in the future.
+This is a simple [[https://en.wikipedia.org/wiki/Brainfuck][Brainfuck]] interpreter in Rust. I plan to build a simple little language on top of bf that transpiles into bf in the future. Do keep in mind that input through stdin writes ASCII sequences directly to the tape. For example:
+#+begin_src brainfuck
+,.,.
+#+end_src
+"65" -> 65, "AB" -> AB, "123" -> 12 where 3 is queued for the next stdin read.
