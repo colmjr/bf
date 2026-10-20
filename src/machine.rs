@@ -10,10 +10,8 @@ pub struct Machine {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum Instruction {
-    Inc(usize),
-    Dec(usize),
-    PtrInc(usize),
-    PtrDec(usize),
+    Inc(isize),
+    PtrInc(isize),
     LoopBeg,
     LoopEnd,
     Output,
@@ -39,14 +37,8 @@ impl Machine {
                 Instruction::Inc(n) => {
                     self.tape[self.ptr] = self.tape[self.ptr].wrapping_add(n as u8);
                 }
-                Instruction::Dec(n) => {
-                    self.tape[self.ptr] = self.tape[self.ptr].wrapping_sub(n as u8);
-                }
                 Instruction::PtrInc(n) => {
-                    self.ptr += n;
-                }
-                Instruction::PtrDec(n) => {
-                    self.ptr -= n;
+                    self.ptr = self.ptr.strict_add_signed(n);
                 }
                 Instruction::LoopBeg => {
                     if self.tape[self.ptr] == 0 {
@@ -107,9 +99,9 @@ fn parse(source: Vec<char>) -> Vec<Instruction> {
     for c in source {
         let instruction = match c {
             '>' => Some(Instruction::PtrInc(1)),
-            '<' => Some(Instruction::PtrDec(1)),
+            '<' => Some(Instruction::PtrInc(-1)),
             '+' => Some(Instruction::Inc(1)),
-            '-' => Some(Instruction::Dec(1)),
+            '-' => Some(Instruction::Inc(-1)),
             '[' => Some(Instruction::LoopBeg),
             ']' => Some(Instruction::LoopEnd),
             '.' => Some(Instruction::Output),
@@ -119,17 +111,12 @@ fn parse(source: Vec<char>) -> Vec<Instruction> {
 
         if let Some(ins) = instruction {
             match (src.last_mut(), ins) {
-                (Some(Instruction::Inc(count)), Instruction::Inc(1)) => {
-                    *count += 1;
+                // here n = +/- 1
+                (Some(Instruction::Inc(count)), Instruction::Inc(n)) => {
+                    *count += n;
                 }
-                (Some(Instruction::Dec(count)), Instruction::Dec(1)) => {
-                    *count += 1;
-                }
-                (Some(Instruction::PtrInc(count)), Instruction::PtrInc(1)) => {
-                    *count += 1;
-                }
-                (Some(Instruction::PtrDec(count)), Instruction::PtrDec(1)) => {
-                    *count += 1;
+                (Some(Instruction::PtrInc(count)), Instruction::PtrInc(n)) => {
+                    *count += n;
                 }
                 (_, ins) => {
                     src.push(ins);
